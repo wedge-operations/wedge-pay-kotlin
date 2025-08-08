@@ -23,6 +23,7 @@ object OnboardingSDK {
         val intent = Intent(activity, WebViewActivity::class.java)
         intent.putExtra("apiKey", apiKey)
         intent.putExtra("environment", environment)
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         activity.startActivity(intent)
     }
 

@@ -1,12 +1,13 @@
 package com.example.onboardingsdkdemoapp
 
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import com.wedge.wedgesdk.sdk.OnboardingCallback
 import com.wedge.wedgesdk.sdk.OnboardingSDK
 
@@ -21,7 +22,6 @@ class MainActivity : AppCompatActivity() {
         // Create the main layout
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(32, 32, 32, 32)
         }
 
         // Create title
@@ -31,7 +31,6 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, 0, 0, 32)
         }
 
-        // Create API key input field
         val apiKeyLabel = TextView(this).apply {
             text = "API Key:"
             textSize = 16f
@@ -43,7 +42,6 @@ class MainActivity : AppCompatActivity() {
             setPadding(16, 16, 16, 16)
         }
 
-        // Create start button
         startButton = Button(this).apply {
             text = "Open SDK WebView"
             setPadding(0, 16, 0, 16)
@@ -51,7 +49,7 @@ class MainActivity : AppCompatActivity() {
 
         startButton.setOnClickListener {
             val apiKey = apiKeyEditText.text.toString().trim()
-            
+
             if (apiKey.isEmpty()) {
                 showModal("Error", "Please enter an API key")
                 return@setOnClickListener
@@ -64,26 +62,21 @@ class MainActivity : AppCompatActivity() {
                 apiKey = apiKey,
                 environment = environment,
                 callback = object : OnboardingCallback {
-
                     override fun onSuccess(data: String) {
-                        println("✅ onSuccess: $data")
                         showModal("Success", "Onboarding was completed successfully.\n\nAnswer:\n$data")
                     }
 
                     override fun onExit(reason: String) {
-                        println("🚪 onExit: $reason")
                         showModal("Exit", "The user left the onboarding.\n\nReason:\n$reason")
                     }
 
                     override fun onError(error: String) {
-                        println("❌ onError: $error")
                         showModal("Error", "An error occurred during onboarding.\n\nDetails:\n$error")
                     }
                 }
             )
         }
 
-        // Add views to the main layout
         mainLayout.addView(titleText)
         mainLayout.addView(apiKeyLabel)
         mainLayout.addView(apiKeyEditText)
@@ -93,12 +86,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showModal(title: String, message: String) {
-        runOnUiThread {
-            AlertDialog.Builder(this@MainActivity)
-                .setTitle(title)
-                .setMessage(message)
-                .setPositiveButton("OK", null)
-                .show()
-        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
 }

@@ -19,7 +19,7 @@ private val environmentUrls = mapOf(
     "sandbox" to "https://onboarding-integration.wedge-can.com/"
 )
 
-class WebViewBottomSheet : BottomSheetDialogFragment() {
+class WebViewDialog : BottomSheetDialogFragment() {
 
     private lateinit var webView: WebView
     private var apiKey: String? = null
@@ -27,11 +27,11 @@ class WebViewBottomSheet : BottomSheetDialogFragment() {
     private var hasResponded = false
 
     companion object {
-        const val TAG = "WebViewBottomSheet"
+        const val TAG = "WebViewDialog"
         private const val ARG_API_KEY = "api_key"
 
-        fun newInstance(apiKey: String, environment: String = "sandbox"): WebViewBottomSheet {
-            val fragment = WebViewBottomSheet()
+        fun newInstance(apiKey: String, environment: String = "sandbox"): WebViewDialog {
+            val fragment = WebViewDialog()
             val args = Bundle()
             args.putString(ARG_API_KEY, apiKey)
             args.putString(ARG_ENVIRONMENT, environment)
@@ -49,10 +49,10 @@ class WebViewBottomSheet : BottomSheetDialogFragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_webview_bottom_sheet, container, false)
+        val view = inflater.inflate(R.layout.fragment_webview_dialog, container, false)
 
         apiKey = arguments?.getString(ARG_API_KEY)
-        webView = view.findViewById(R.id.bottomSheetWebView)
+        webView = view.findViewById(R.id.dialogWebView)
 
         if (apiKey.isNullOrEmpty()) {
             callback?.onError("API key is missing")
@@ -85,16 +85,6 @@ class WebViewBottomSheet : BottomSheetDialogFragment() {
                     callback?.onError(error.description.toString())
                     hasResponded = true
                     dismiss()
-                }
-            }
-
-            override fun onReceivedHttpError(
-                view: WebView,
-                request: WebResourceRequest,
-                errorResponse: WebResourceResponse,
-            ) {
-                if (!hasResponded) {
-                    callback?.onError("HTTP error: ${errorResponse.statusCode}")
                 }
             }
         }
@@ -178,4 +168,4 @@ class WebViewBottomSheet : BottomSheetDialogFragment() {
             }
         }
     }
-} 
+}

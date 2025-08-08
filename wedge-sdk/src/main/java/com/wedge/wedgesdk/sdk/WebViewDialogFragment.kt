@@ -9,7 +9,7 @@ import android.view.ViewGroup
 import android.webkit.*
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
-class WebViewBottomSheetFragment(
+class WebViewDialogFragment(
     private val url: String,
     private val callback: Callback
 ) : BottomSheetDialogFragment() {
@@ -40,7 +40,7 @@ class WebViewBottomSheetFragment(
                         return true
                     }
                     url.startsWith("sdk://exit") -> {
-                        Log.d("WebViewBottomSheet", "Callback onExit triggered")
+                        Log.d("WebViewDialog", "Callback onExit triggered")
                         callback.onExit()
                         dismiss()
                         return true
@@ -62,4 +62,4 @@ class WebViewBottomSheetFragment(
     }
 
     override fun getTheme(): Int = com.google.android.material.R.style.Theme_Material3_Light_BottomSheetDialog
-} 
+}

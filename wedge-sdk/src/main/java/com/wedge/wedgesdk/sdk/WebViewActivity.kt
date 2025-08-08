@@ -2,7 +2,8 @@ package com.wedge.wedgesdk.sdk
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.util.Log
+import android.os.Handler
+import android.os.Looper
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONObject
@@ -33,11 +34,12 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         val url = "$baseUrl?onboardingToken=$apiKey"
-        Log.d("WebViewActivity", "🌐 Loading URL: $url")
 
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            useWideViewPort = true
+            loadWithOverviewMode = true
         }
 
         webView.addJavascriptInterface(JSBridge(), "WedgeSDKAndroid")
@@ -56,23 +58,6 @@ class WebViewActivity : AppCompatActivity() {
                     finish()
                 }
             }
-
-            override fun onReceivedHttpError(
-                view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse
-            ) {
-                if (!hasResponded) {
-                    OnboardingSDK.handleError("HTTP Error ${errorResponse.statusCode}")
-                    hasResponded = true
-                    finish()
-                }
-            }
-        }
-
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                Log.d("WebViewActivity", "Console: ${consoleMessage?.message()}")
-                return true
-            }
         }
 
         webView.loadUrl(url)
@@ -80,6 +65,7 @@ class WebViewActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         webView.removeJavascriptInterface("WedgeSDKAndroid")
+        webView.stopLoading()
         super.onDestroy()
     }
 
@@ -92,46 +78,96 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     inner class JSBridge {
+        private val mainHandler = Handler(Looper.getMainLooper())
+        
+        private fun finishActivity() {
+            if (!isFinishing) {
+                try {
+                    finish()
+                } catch (e: Exception) {
+                    try {
+                        finishAndRemoveTask()
+                    } catch (e2: Exception) {
+                        try {
+                            moveTaskToBack(true)
+                        } catch (e3: Exception) {
+                            // Activity couldn't be finished
+                        }
+                    }
+                }
+            }
+        }
+        
         @JavascriptInterface
         fun onSuccess(data: String) {
-            if (!hasResponded) {
-                hasResponded = true
-                OnboardingSDK.handleSuccess(data)
-                finish()
+            mainHandler.post {
+                if (!hasResponded && !isFinishing) {
+                    hasResponded = true
+                    OnboardingSDK.handleSuccess(data)
+                    finishActivity()
+                }
             }
         }
 
         @JavascriptInterface
         fun onExit(reason: String) {
-            if (!hasResponded) {
-                hasResponded = true
-                OnboardingSDK.handleExit(reason)
-                finish()
+            mainHandler.post {
+                if (!hasResponded && !isFinishing) {
+                    hasResponded = true
+                    OnboardingSDK.handleExit(reason)
+                    finishActivity()
+                }
             }
         }
 
         @JavascriptInterface
         fun onError(error: String) {
-            if (!hasResponded) {
-                hasResponded = true
-                OnboardingSDK.handleError(error)
-                finish()
+            mainHandler.post {
+                if (!hasResponded && !isFinishing) {
+                    hasResponded = true
+                    OnboardingSDK.handleError(error)
+                    finishActivity()
+                }
             }
         }
 
         @JavascriptInterface
         fun postMessage(json: String) {
-            try {
-                val obj = JSONObject(json)
-                val type = obj.getString("type")
-                val data = obj.getJSONObject("data").toString()
-                when (type) {
-                    "SUCCESS" -> onSuccess(data)
-                    "EXIT" -> onExit(data)
-                    "ERROR" -> onError(data)
+            mainHandler.post {
+                try {
+                    val obj = JSONObject(json)
+                    val type = obj.getString("type")
+                    val data = obj.getJSONObject("data").toString()
+                    when (type) {
+                        "SUCCESS" -> {
+                            if (!hasResponded && !isFinishing) {
+                                hasResponded = true
+                                OnboardingSDK.handleSuccess(data)
+                                finishActivity()
+                            }
+                        }
+                        "EXIT" -> {
+                            if (!hasResponded && !isFinishing) {
+                                hasResponded = true
+                                OnboardingSDK.handleExit(data)
+                                finishActivity()
+                            }
+                        }
+                        "ERROR" -> {
+                            if (!hasResponded && !isFinishing) {
+                                hasResponded = true
+                                OnboardingSDK.handleError(data)
+                                finishActivity()
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    if (!hasResponded && !isFinishing) {
+                        hasResponded = true
+                        OnboardingSDK.handleError("Invalid message format")
+                        finishActivity()
+                    }
                 }
-            } catch (e: Exception) {
-                onError("Invalid message format")
             }
         }
     }
