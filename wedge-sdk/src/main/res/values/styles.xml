@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Tema global de tu app -->
+    <style name="Theme.MyApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Configuración general -->
+    </style>
+
+    <!-- Tema especial para el WebView edge-to-edge -->
+    <style name="Theme.OnboardingSDK.EdgeToEdge" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+</resources>

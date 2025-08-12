@@ -31,19 +31,19 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.github.yourusername:wedge-sdk:1.0.0")
+    implementation("com.github.wedge-operations:wedge-sdk:1.0.0")
 }
 ```
 
-**Note**: Replace `yourusername` with your actual GitHub username and `1.0.0` with the version you want to use (can be a tag, commit hash, or branch name).
+**Note**: Replace `1.0.0` with the version you want to use (can be a tag, commit hash, or branch name).
 
 ### Version Options
 
 You can use different version formats:
 
-- **Release tag**: `com.github.yourusername:wedge-sdk:1.0.0`
-- **Commit hash**: `com.github.yourusername:wedge-sdk:abc1234`
-- **Branch name**: `com.github.yourusername:wedge-sdk:main-SNAPSHOT`
+- **Release tag**: `com.github.wedge-operations:wedge-sdk:1.0.0`
+- **Commit hash**: `com.github.wedge-operations:wedge-sdk:abc1234`
+- **Branch name**: `com.github.wedge-operations:wedge-sdk:main-SNAPSHOT`
 
 ## Usage
 
@@ -130,4 +130,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- GitHub Issues: [Create an issue](https://github.com/yourusername/wedge-sdk/issues) 
+- GitHub Issues: [Create an issue](https://github.com/wedge-operations/wedge-pay-kotlin/issues)

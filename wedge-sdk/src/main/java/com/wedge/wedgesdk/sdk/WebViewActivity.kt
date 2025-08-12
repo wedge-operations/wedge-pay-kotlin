@@ -4,8 +4,14 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
+import android.widget.FrameLayout
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import org.json.JSONObject
 
 class WebViewActivity : AppCompatActivity() {
@@ -17,9 +23,61 @@ class WebViewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        webView = WebView(this)
-        setContentView(webView)
+        // 1) Edge-to-edge
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
+        // 2) Contenedor raíz para manejar insets
+        val root = FrameLayout(this)
+        setContentView(root)
+
+        // 3) WebView a pantalla completa
+        webView = WebView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            // Evita que las barras de scroll reserven espacio
+            scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                useWideViewPort = true
+                loadWithOverviewMode = true
+            }
+        }
+        root.addView(webView)
+
+        // 4) Aplicar WindowInsets: top/left/right al root, bottom/IME al WebView
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val sysBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val gestures = insets.getInsets(WindowInsetsCompat.Type.systemGestures())
+            val tappable = insets.getInsets(WindowInsetsCompat.Type.tappableElement())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+
+            val bottomSafe = listOf(
+                sysBars.bottom,
+                navBars.bottom,
+                gestures.bottom,
+                tappable.bottom,
+                ime.bottom
+            ).max()
+
+            // Lados y top al contenedor
+            v.updatePadding(left = sysBars.left, top = sysBars.top, right = sysBars.right)
+            // Solo bottom al WebView para evitar doble padding en el scroll
+            webView.updatePadding(bottom = bottomSafe)
+
+            insets
+        }
+
+        // (Opcional) Iconos oscuros en barras si tu fondo es claro
+        WindowCompat.getInsetsController(window, root).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
+
+        // 5) Lógica existente
         val apiKey = intent.getStringExtra("apiKey") ?: run {
             OnboardingSDK.handleError("Missing API key")
             finish()
@@ -27,20 +85,11 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         val environment = intent.getStringExtra("environment") ?: "sandbox"
-
         val baseUrl = when (environment) {
             "production" -> "https://onboarding.wedge-can.com/"
             else -> "https://onboarding-integration.wedge-can.com/"
         }
-
         val url = "$baseUrl?onboardingToken=$apiKey"
-
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            useWideViewPort = true
-            loadWithOverviewMode = true
-        }
 
         webView.addJavascriptInterface(JSBridge(), "WedgeSDKAndroid")
 
@@ -69,6 +118,7 @@ class WebViewActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (!hasResponded) {
             OnboardingSDK.handleExit("User closed the onboarding via back button")
@@ -79,25 +129,25 @@ class WebViewActivity : AppCompatActivity() {
 
     inner class JSBridge {
         private val mainHandler = Handler(Looper.getMainLooper())
-        
+
         private fun finishActivity() {
             if (!isFinishing) {
                 try {
                     finish()
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     try {
                         finishAndRemoveTask()
-                    } catch (e2: Exception) {
+                    } catch (_: Exception) {
                         try {
                             moveTaskToBack(true)
-                        } catch (e3: Exception) {
-                            // Activity couldn't be finished
+                        } catch (_: Exception) {
+                            // no-op
                         }
                     }
                 }
             }
         }
-        
+
         @JavascriptInterface
         fun onSuccess(data: String) {
             mainHandler.post {
@@ -139,29 +189,23 @@ class WebViewActivity : AppCompatActivity() {
                     val type = obj.getString("type")
                     val data = obj.getJSONObject("data").toString()
                     when (type) {
-                        "SUCCESS" -> {
-                            if (!hasResponded && !isFinishing) {
-                                hasResponded = true
-                                OnboardingSDK.handleSuccess(data)
-                                finishActivity()
-                            }
+                        "SUCCESS" -> if (!hasResponded && !isFinishing) {
+                            hasResponded = true
+                            OnboardingSDK.handleSuccess(data)
+                            finishActivity()
                         }
-                        "EXIT" -> {
-                            if (!hasResponded && !isFinishing) {
-                                hasResponded = true
-                                OnboardingSDK.handleExit(data)
-                                finishActivity()
-                            }
+                        "EXIT" -> if (!hasResponded && !isFinishing) {
+                            hasResponded = true
+                            OnboardingSDK.handleExit(data)
+                            finishActivity()
                         }
-                        "ERROR" -> {
-                            if (!hasResponded && !isFinishing) {
-                                hasResponded = true
-                                OnboardingSDK.handleError(data)
-                                finishActivity()
-                            }
+                        "ERROR" -> if (!hasResponded && !isFinishing) {
+                            hasResponded = true
+                            OnboardingSDK.handleError(data)
+                            finishActivity()
                         }
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     if (!hasResponded && !isFinishing) {
                         hasResponded = true
                         OnboardingSDK.handleError("Invalid message format")
@@ -171,4 +215,4 @@ class WebViewActivity : AppCompatActivity() {
             }
         }
     }
-} 
+}

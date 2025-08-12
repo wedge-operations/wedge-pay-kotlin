@@ -44,7 +44,7 @@ dependencyResolutionManagement {
 
 // In app/build.gradle.kts
 dependencies {
-    implementation("com.github.yourusername:wedge-sdk:1.0.0")
+    implementation("com.github.wedge-operations:wedge-sdk:1.0.0")
 }
 ```
 
@@ -52,9 +52,9 @@ dependencies {
 
 Users can install different versions:
 
-- **Release tag**: `com.github.yourusername:wedge-sdk:1.0.0`
-- **Commit hash**: `com.github.yourusername:wedge-sdk:abc1234`
-- **Branch name**: `com.github.yourusername:wedge-sdk:main-SNAPSHOT`
+- **Release tag**: `com.github.wedge-operations:wedge-sdk:1.0.0`
+- **Commit hash**: `com.github.wedge-operations:wedge-sdk:abc1234`
+- **Branch name**: `com.github.wedge-operations:wedge-sdk:main-SNAPSHOT`
 
 ## Benefits of JitPack
 
@@ -68,11 +68,11 @@ Users can install different versions:
 
 If JitPack build fails:
 
-1. Check the [JitPack build logs](https://jitpack.io/com/github/yourusername/wedge-sdk)
+1. Check the [JitPack build logs](https://jitpack.io/com/github/wedge-operations/wedge-sdk)
 2. Ensure your `jitpack.yml` is correct
 3. Make sure all dependencies are available
 4. Check that the Gradle build works locally
 
 ## JitPack Status
 
-You can check the build status at: `https://jitpack.io/com/github/yourusername/wedge-sdk` 
+You can check the build status at: `https://jitpack.io/com/github/wedge-operations/wedge-sdk`
