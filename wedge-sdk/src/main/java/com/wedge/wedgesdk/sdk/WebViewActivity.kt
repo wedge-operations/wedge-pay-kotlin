@@ -86,8 +86,9 @@ class WebViewActivity : AppCompatActivity() {
 
         val environment = intent.getStringExtra("environment") ?: "sandbox"
         val baseUrl = when (environment) {
-            "production" -> "https://onboarding.wedge-can.com/"
-            else -> "https://onboarding-integration.wedge-can.com/"
+            "production" -> "https://onboarding-production.wedge-can.com"
+            "sandbox" -> "https://onboarding-sandbox.wedge-can.com"
+            else -> "https://onboarding-integration.wedge-can.com"
         }
         val url = "$baseUrl?onboardingToken=$apiKey"
 
