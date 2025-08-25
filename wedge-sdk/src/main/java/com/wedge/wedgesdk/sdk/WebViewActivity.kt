@@ -85,12 +85,14 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         val environment = intent.getStringExtra("environment") ?: "sandbox"
+        val type = intent.getStringExtra("type") ?: "onboarding"
+        
         val baseUrl = when (environment) {
             "production" -> "https://onboarding-production.wedge-can.com"
             "sandbox" -> "https://onboarding-sandbox.wedge-can.com"
             else -> "https://onboarding-integration.wedge-can.com"
         }
-        val url = "$baseUrl?onboardingToken=$apiKey"
+        val url = "$baseUrl?onboardingToken=$apiKey&type=$type"
 
         webView.addJavascriptInterface(JSBridge(), "WedgeSDKAndroid")
 

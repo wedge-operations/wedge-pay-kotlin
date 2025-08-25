@@ -1,8 +1,0 @@
-jdk:
-  - openjdk11
-
-before_install:
-  - ./gradlew wrapper
-
-build:
-  - ./gradlew :wedge-sdk:assembleRelease

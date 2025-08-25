@@ -13,6 +13,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var apiKeyEditText: EditText
     private lateinit var startButton: Button
+    private lateinit var typeSpinner: Spinner
+    private lateinit var apiKeyLabel: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +36,29 @@ class MainActivity : AppCompatActivity() {
             setPadding(0, 0, 0, 32)
         }
 
-        val apiKeyLabel = TextView(this).apply {
+        // Type selection section
+        val typeLabel = TextView(this).apply {
+            text = "Onboarding Type:"
+            textSize = 16f
+            setPadding(0, 0, 0, 8)
+        }
+
+        typeSpinner = Spinner(this).apply {
+            val types = arrayOf("onboarding", "funding")
+            val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, types)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            setAdapter(adapter)
+            setPadding(0, 8, 0, 16)
+        }
+
+        typeSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                updateUIForType(types[position])
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+
+        apiKeyLabel = TextView(this).apply {
             text = "API Key:"
             textSize = 16f
             setPadding(0, 0, 0, 8)
@@ -46,7 +70,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         startButton = Button(this).apply {
-            text = "Open SDK WebView"
+            text = "Start Onboarding"
             setPadding(0, 16, 0, 16)
         }
 
@@ -58,11 +82,13 @@ class MainActivity : AppCompatActivity() {
             }
 
             val environment = "sandbox"
+            val selectedType = typeSpinner.selectedItem.toString()
 
             com.wedge.wedgesdk.sdk.OnboardingSDK.startOnboarding(
                 activity = this@MainActivity,
                 apiKey = apiKey,
                 environment = environment,
+                type = selectedType,
                 callback = object : com.wedge.wedgesdk.sdk.OnboardingCallback {
                     override fun onSuccess(data: String) {
                         showModal("Success", "Onboarding was completed successfully.\n\nAnswer:\n$data")
@@ -80,6 +106,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         mainLayout.addView(titleText)
+        mainLayout.addView(typeLabel)
+        mainLayout.addView(typeSpinner)
         mainLayout.addView(apiKeyLabel)
         mainLayout.addView(apiKeyEditText)
         mainLayout.addView(startButton)
@@ -103,6 +131,22 @@ class MainActivity : AppCompatActivity() {
             )
             // Devuelve los insets sin consumir para que otros views también puedan usarlos si hace falta
             insets
+        }
+
+        // Initialize UI for default type
+        updateUIForType("onboarding")
+    }
+
+    private fun updateUIForType(type: String) {
+        when (type) {
+            "onboarding" -> {
+                apiKeyLabel.text = "Onboarding Token:"
+                startButton.text = "Start Onboarding"
+            }
+            "funding" -> {
+                apiKeyLabel.text = "Funding Token:"
+                startButton.text = "Start Funding Flow"
+            }
         }
     }
 
