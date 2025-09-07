@@ -70,19 +70,15 @@ Open the project in Android Studio and sync Gradle dependencies.
 ```kotlin
 OnboardingSDK.startOnboarding(
     activity = this,
-    apiKey = "your-api-key",
-    environment = "sandbox",
+    token = "your-token",
+    env = "sandbox",
     type = "onboarding", // Default flow for new users
     callback = object : OnboardingCallback {
-        override fun onSuccess(data: String) {
-            // Handle success
-        }
-        override fun onExit(reason: String) {
-            // Handle exit
-        }
-        override fun onError(error: String) {
-            // Handle error
-        }
+        override fun onSuccess(data: String) { }
+        override fun onClose(reason: String) { }
+        override fun onError(error: String) { }
+        override fun onEvent(event: String) { }
+        override fun onLoad(data: String) { }
     }
 )
 ```
@@ -92,8 +88,8 @@ OnboardingSDK.startOnboarding(
 ```kotlin
 OnboardingSDK.startOnboarding(
     activity = this,
-    apiKey = "your-api-key",
-    environment = "sandbox",
+    token = "your-token",
+    env = "sandbox",
     type = "funding", // Streamlined flow for existing users
     callback = callback
 )

@@ -57,23 +57,24 @@ class MainActivity : AppCompatActivity() {
 ```kotlin
 OnboardingSDK.startOnboarding(
     activity = this,
-    apiKey = "your-api-key-here",
-    environment = "sandbox", // "sandbox", "production", or "integration"
+    token = "your-token-here",
+    env = "sandbox", // "integration", "sandbox", or "production"
     type = "onboarding", // "onboarding" or "funding"
     callback = object : OnboardingCallback {
         override fun onSuccess(data: String) {
-            // Handle successful completion
             Log.d("Onboarding", "Success: $data")
         }
-        
-        override fun onExit(reason: String) {
-            // Handle user exit
-            Log.d("Onboarding", "Exit: $reason")
+        override fun onClose(reason: String) {
+            Log.d("Onboarding", "Closed: $reason")
         }
-        
         override fun onError(error: String) {
-            // Handle errors
             Log.e("Onboarding", "Error: $error")
+        }
+        override fun onEvent(event: String) {
+            Log.d("Onboarding", "Event: $event")
+        }
+        override fun onLoad(data: String) {
+            Log.d("Onboarding", "Loaded: $data")
         }
     }
 )
@@ -108,8 +109,8 @@ OnboardingSDK.startOnboarding(
 ```kotlin
 fun startOnboarding(
     activity: FragmentActivity,
-    apiKey: String,
-    environment: String,
+    token: String,
+    env: String,
     type: String = "onboarding",
     callback: OnboardingCallback
 )
@@ -117,8 +118,8 @@ fun startOnboarding(
 
 **Parameters:**
 - `activity`: The FragmentActivity to start the onboarding from
-- `apiKey`: Your Wedge API key for authentication
-- `environment`: Target environment ("sandbox", "production", "integration")
+- `token`: Your onboarding token
+- `env`: Target environment ("integration", "sandbox", "production")
 - `type`: Flow type ("onboarding" or "funding") - defaults to "onboarding"
 - `callback`: Interface for handling onboarding events
 
@@ -127,8 +128,10 @@ fun startOnboarding(
 ```kotlin
 interface OnboardingCallback {
     fun onSuccess(data: String)      // Called on successful completion
-    fun onExit(reason: String)       // Called when user exits the flow
+    fun onClose(reason: String)      // Called when user closes/exits the flow
     fun onError(error: String)       // Called when an error occurs
+    fun onEvent(event: String) { }   // Optional events from web app
+    fun onLoad(data: String) { }     // Optional load event
 }
 ```
 
@@ -156,7 +159,7 @@ The included example app demonstrates:
 
 The SDK automatically constructs URLs with the following format:
 ```
-{baseUrl}?onboardingToken={apiKey}&type={type}
+{baseUrl}?onboardingToken={token}&type={type}
 ```
 
 ### JavaScript Bridge

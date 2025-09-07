@@ -5,8 +5,21 @@ import androidx.fragment.app.FragmentActivity
 
 interface OnboardingCallback {
     fun onSuccess(data: String)
-    fun onExit(reason: String)
+    /**
+     * Called when the user closes the flow.
+     */
+    fun onClose(reason: String) {}
+    @Deprecated("Use onClose instead")
+    fun onExit(reason: String) {}
     fun onError(error: String)
+    /**
+     * Called for miscellaneous events from the web app.
+     */
+    fun onEvent(event: String) {}
+    /**
+     * Called when the web app finishes loading.
+     */
+    fun onLoad(data: String) {}
 }
 
 object OnboardingSDK {
@@ -15,23 +28,23 @@ object OnboardingSDK {
     /**
      * Starts the onboarding flow with the specified parameters
      * @param activity The FragmentActivity to start the onboarding from
-     * @param apiKey The API key for authentication
-     * @param environment The environment (sandbox, production, integration)
+     * @param token The onboarding token for authentication
+     * @param env The environment (integration, sandbox, production)
      * @param type The type of onboarding flow ("onboarding" for new users, "funding" for existing users)
      * @param callback The callback interface for handling onboarding events
      */
     fun startOnboarding(
         activity: FragmentActivity,
-        apiKey: String,
-        environment: String,
+        token: String,
+        env: String,
         type: String = "onboarding",
         callback: OnboardingCallback
     ) {
         this.callback = callback
 
         val intent = Intent(activity, WebViewActivity::class.java)
-        intent.putExtra("apiKey", apiKey)
-        intent.putExtra("environment", environment)
+        intent.putExtra("token", token)
+        intent.putExtra("env", env)
         intent.putExtra("type", type)
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         activity.startActivity(intent)
@@ -41,11 +54,24 @@ object OnboardingSDK {
         callback?.onSuccess(data)
     }
 
-    fun handleExit(reason: String) {
-        callback?.onExit(reason)
+    fun handleClose(reason: String) {
+        // Backward compatibility: also call onExit if implemented
+        try { callback?.onExit(reason) } catch (_: Throwable) {}
+        callback?.onClose(reason)
     }
+
+    @Deprecated("Use handleClose instead")
+    fun handleExit(reason: String) = handleClose(reason)
 
     fun handleError(error: String) {
         callback?.onError(error)
+    }
+
+    fun handleEvent(event: String) {
+        callback?.onEvent(event)
+    }
+
+    fun handleLoad(data: String) {
+        callback?.onLoad(data)
     }
 } 
