@@ -23,14 +23,11 @@ class WebViewActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1) Edge-to-edge
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        // 2) Contenedor raíz para manejar insets
         val root = FrameLayout(this)
         setContentView(root)
 
-        // 3) WebView a pantalla completa
         webView = WebView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -47,7 +44,6 @@ class WebViewActivity : AppCompatActivity() {
         }
         root.addView(webView)
 
-        // 4) Aplicar WindowInsets: top/left/right al root, bottom/IME al WebView
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val sysBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
@@ -63,42 +59,39 @@ class WebViewActivity : AppCompatActivity() {
                 ime.bottom
             ).max()
 
-            // Lados y top al contenedor
             v.updatePadding(left = sysBars.left, top = sysBars.top, right = sysBars.right)
-            // Solo bottom al WebView para evitar doble padding en el scroll
             webView.updatePadding(bottom = bottomSafe)
 
             insets
         }
 
-        // (Opcional) Iconos oscuros en barras si tu fondo es claro
         WindowCompat.getInsetsController(window, root).apply {
             isAppearanceLightStatusBars = true
             isAppearanceLightNavigationBars = true
         }
 
-        // 5) Lógica existente
-        val apiKey = intent.getStringExtra("apiKey") ?: run {
-            OnboardingSDK.handleError("Missing API key")
+        val token = intent.getStringExtra("token") ?: run {
+            OnboardingSDK.handleError("Missing token")
             finish()
             return
         }
 
-        val environment = intent.getStringExtra("environment") ?: "sandbox"
+        val env = intent.getStringExtra("env") ?: "sandbox"
         val type = intent.getStringExtra("type") ?: "onboarding"
         
-        val baseUrl = when (environment) {
-            "production" -> "https://onboarding-production.wedge-can.com"
+        val baseUrl = when (env) {
+            "production" -> "https://onboarding.wedge-can.com"
             "sandbox" -> "https://onboarding-sandbox.wedge-can.com"
             else -> "https://onboarding-integration.wedge-can.com"
         }
-        val url = "$baseUrl?onboardingToken=$apiKey&type=$type"
+        val url = "$baseUrl?onboardingToken=$token&type=$type"
 
         webView.addJavascriptInterface(JSBridge(), "WedgeSDKAndroid")
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
-                webView.evaluateJavascript("window.__ONBOARDING_API_KEY__ = '$apiKey';", null)
+                webView.evaluateJavascript("window.__ONBOARDING_TOKEN__ = '$token';", null)
+                OnboardingSDK.handleLoad(url ?: "")
             }
 
             override fun onReceivedError(
@@ -167,7 +160,7 @@ class WebViewActivity : AppCompatActivity() {
             mainHandler.post {
                 if (!hasResponded && !isFinishing) {
                     hasResponded = true
-                    OnboardingSDK.handleExit(reason)
+                    OnboardingSDK.handleClose(reason)
                     finishActivity()
                 }
             }
@@ -185,27 +178,49 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun onClose(reason: String) {
+            mainHandler.post {
+                if (!hasResponded && !isFinishing) {
+                    hasResponded = true
+                    OnboardingSDK.handleClose(reason)
+                    finishActivity()
+                }
+            }
+        }
+
+        @JavascriptInterface
         fun postMessage(json: String) {
             mainHandler.post {
                 try {
                     val obj = JSONObject(json)
-                    val type = obj.getString("type")
-                    val data = obj.getJSONObject("data").toString()
+                    val type = obj.optString("event", obj.optString("type"))
+                    val dataObj = obj.opt("data")
+                    val data = when (dataObj) {
+                        is JSONObject -> dataObj.toString()
+                        null -> obj.toString()
+                        else -> dataObj.toString()
+                    }
                     when (type) {
-                        "SUCCESS" -> if (!hasResponded && !isFinishing) {
+                        "SUCCESS", "onSuccess" -> if (!hasResponded && !isFinishing) {
                             hasResponded = true
                             OnboardingSDK.handleSuccess(data)
                             finishActivity()
                         }
-                        "EXIT" -> if (!hasResponded && !isFinishing) {
+                        "EXIT", "onClose", "onExit" -> if (!hasResponded && !isFinishing) {
                             hasResponded = true
-                            OnboardingSDK.handleExit(data)
+                            OnboardingSDK.handleClose(data)
                             finishActivity()
                         }
-                        "ERROR" -> if (!hasResponded && !isFinishing) {
+                        "ERROR", "onError" -> if (!hasResponded && !isFinishing) {
                             hasResponded = true
                             OnboardingSDK.handleError(data)
                             finishActivity()
+                        }
+                        "onEvent" -> {
+                            OnboardingSDK.handleEvent(data)
+                        }
+                        "onLoad" -> {
+                            OnboardingSDK.handleLoad(data)
                         }
                     }
                 } catch (_: Exception) {
