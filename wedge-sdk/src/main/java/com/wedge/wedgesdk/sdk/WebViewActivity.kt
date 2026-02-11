@@ -1,6 +1,8 @@
 package com.wedge.wedgesdk.sdk
 
 import android.annotation.SuppressLint
+import android.net.Uri
+import android.util.Log
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -15,6 +17,15 @@ import androidx.core.view.updatePadding
 import org.json.JSONObject
 
 class WebViewActivity : AppCompatActivity() {
+
+    companion object {
+        /** Map of environment names to base URLs. */
+        private val ENVIRONMENTS = mapOf(
+            "integration" to "https://onboarding-integration.wedge-can.com",
+            "sandbox" to "https://onboarding-sandbox.wedge-can.com",
+            "production" to "https://onboarding-production.wedge-can.com"
+        )
+    }
 
     private lateinit var webView: WebView
     private var hasResponded = false
@@ -33,7 +44,6 @@ class WebViewActivity : AppCompatActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
-            // Evita que las barras de scroll reserven espacio
             scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
             settings.apply {
                 javaScriptEnabled = true
@@ -78,13 +88,12 @@ class WebViewActivity : AppCompatActivity() {
 
         val env = intent.getStringExtra("env") ?: "sandbox"
         val type = intent.getStringExtra("type") ?: "onboarding"
-        
-        val baseUrl = when (env) {
-            "production" -> "https://onboarding.wedge-can.com"
-            "sandbox" -> "https://onboarding-sandbox.wedge-can.com"
-            else -> "https://onboarding-integration.wedge-can.com"
-        }
-        val url = "$baseUrl?onboardingToken=$token&type=$type"
+        val customBaseUrl = intent.getStringExtra("customBaseUrl")?.trim()?.takeIf { it.isNotBlank() }
+        val plaidCompletionRedirectUri = intent.getStringExtra("plaidCompletionRedirectUri")?.trim()?.takeIf { it.isNotBlank() }
+
+        var baseUrl = (customBaseUrl ?: (ENVIRONMENTS[env] ?: ENVIRONMENTS["integration"]!!)).trim().trimEnd('/')
+        val url = buildWebViewUrl(baseUrl, token, type, plaidCompletionRedirectUri)
+        Log.d("WedgeSDK", "Loading URL: $url (env=$env, baseUrl=$baseUrl)")
 
         webView.addJavascriptInterface(JSBridge(), "WedgeSDKAndroid")
 
@@ -106,6 +115,22 @@ class WebViewActivity : AppCompatActivity() {
         }
 
         webView.loadUrl(url)
+    }
+
+    /** Same URL shape for all environments: baseUrl + onboardingToken + type + optional plaidCompletionRedirectUri. */
+    private fun buildWebViewUrl(
+        baseUrl: String,
+        onboardingToken: String,
+        type: String,
+        plaidCompletionRedirectUri: String?
+    ): String {
+        val separator = if (baseUrl.contains("?")) "&" else "?"
+        val params = listOfNotNull(
+            "onboardingToken=${Uri.encode(onboardingToken)}",
+            "type=${Uri.encode(type)}",
+            plaidCompletionRedirectUri?.let { "plaidCompletionRedirectUri=${Uri.encode(it)}" }
+        )
+        return baseUrl + separator + params.joinToString("&")
     }
 
     override fun onDestroy() {

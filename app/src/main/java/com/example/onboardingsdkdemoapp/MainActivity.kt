@@ -14,7 +14,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tokenEditText: EditText
     private lateinit var startButton: Button
     private lateinit var typeSpinner: Spinner
+    private lateinit var envSpinner: Spinner
     private lateinit var tokenLabel: TextView
+
+    private val environments = arrayOf("Integration", "Sandbox", "Production")
+    private val envValues = mapOf(
+        "Integration" to "integration",
+        "Sandbox" to "sandbox",
+        "Production" to "production"
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +39,19 @@ class MainActivity : AppCompatActivity() {
             text = "Onboarding SDK Demo"
             textSize = 24f
             setPadding(0, 0, 0, 32)
+        }
+
+        val envLabel = TextView(this).apply {
+            text = "Environment:"
+            textSize = 16f
+            setPadding(0, 0, 0, 8)
+        }
+
+        envSpinner = Spinner(this).apply {
+            val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, environments)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            setAdapter(adapter)
+            setPadding(0, 8, 0, 16)
         }
 
         val typeLabel = TextView(this).apply {
@@ -78,14 +99,18 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            val env = "sandbox"
+            val selectedEnvLabel = envSpinner.selectedItem?.toString() ?: "Integration"
+            val env = envValues[selectedEnvLabel] ?: "integration"
             val selectedType = typeSpinner.selectedItem.toString()
+            val plaidCompletionRedirectUri: String? = null // Optional: e.g. "yourapp://complete" for Plaid Hosted Link
 
             com.wedge.wedgesdk.sdk.OnboardingSDK.startOnboarding(
                 activity = this@MainActivity,
                 token = token,
                 env = env,
                 type = selectedType,
+                customBaseUrl = null,
+                plaidCompletionRedirectUri = plaidCompletionRedirectUri,
                 callback = object : com.wedge.wedgesdk.sdk.OnboardingCallback {
                     override fun onSuccess(data: String) {
                         showModal("Success", "Onboarding was completed successfully.\n\nAnswer:\n$data")
@@ -96,7 +121,10 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     override fun onError(error: String) {
-                        showModal("Error", "An error occurred during onboarding.\n\nDetails:\n$error")
+                        val hint = if (error.contains("ERR_CONNECTION_REFUSED") && env == "development") {
+                            "\n\n• On your Mac: run the web app so it listens on all interfaces, e.g. npm run dev -- --host 0.0.0.0 (or yarn dev --host 0.0.0.0).\n\n• If still refused: use your Mac’s IP in Development URL above (e.g. http://192.168.0.85:3000). Find IP in System Settings → Network."
+                        } else ""
+                        showModal("Error", "An error occurred during onboarding.\n\n$error$hint")
                     }
 
                     override fun onEvent(event: String) {
@@ -111,6 +139,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         mainLayout.addView(titleText)
+        mainLayout.addView(envLabel)
+        mainLayout.addView(envSpinner)
         mainLayout.addView(typeLabel)
         mainLayout.addView(typeSpinner)
         mainLayout.addView(tokenLabel)
@@ -135,7 +165,6 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        // Initialize UI for default type
         updateUIForType("onboarding")
     }
 
