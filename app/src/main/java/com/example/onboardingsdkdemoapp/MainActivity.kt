@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
             val selectedEnvLabel = envSpinner.selectedItem?.toString() ?: "Integration"
             val env = envValues[selectedEnvLabel] ?: "integration"
             val selectedType = typeSpinner.selectedItem.toString()
-            val plaidCompletionRedirectUri: String? = null // Optional: e.g. "yourapp://complete" for Plaid Hosted Link
+            val hostedLinkCompletionRedirectUri: String? = com.wedge.wedgesdk.sdk.HOSTED_LINK_DEFAULT_REDIRECT_URI
 
             com.wedge.wedgesdk.sdk.OnboardingSDK.startOnboarding(
                 activity = this@MainActivity,
@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity() {
                 env = env,
                 type = selectedType,
                 customBaseUrl = null,
-                plaidCompletionRedirectUri = plaidCompletionRedirectUri,
+                hostedLinkCompletionRedirectUri = hostedLinkCompletionRedirectUri,
                 callback = object : com.wedge.wedgesdk.sdk.OnboardingCallback {
                     override fun onSuccess(data: String) {
                         showModal("Success", "Onboarding was completed successfully.\n\nAnswer:\n$data")

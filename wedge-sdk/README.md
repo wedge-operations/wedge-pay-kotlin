@@ -166,6 +166,42 @@ The SDK automatically constructs URLs with the following format:
 
 The SDK provides a JavaScript bridge (`WedgeSDKAndroid`) for communication between the WebView and native Android code.
 
+### Hosted Link (Android)
+
+When the web app uses Hosted Link, it can hand off the Hosted Link URL to the native app so the flow runs in a Chrome Custom Tab instead of inside the WebView. The contract matches the web app’s expectations (same as iOS).
+
+**1. Exposing the method**
+
+- **Dedicated method (recommended):**  
+  `window.WedgeSDKAndroid.openHostedLink(url)`  
+  The web app passes the full Hosted Link URL (e.g. `https://cdn.plaid.com/link/v2/...` or any provider’s link URL). Returns `true` if the URL was accepted and the Custom Tab was launched.
+
+- **postMessage:**  
+  `window.WedgeSDKAndroid.postMessage(JSON.stringify({ type: "OPEN_HOSTED_LINK", url: "<url>" }))`  
+  Same behavior as above.
+
+**2. Completion callback**
+
+When the Hosted Link flow ends (user completes or cancels), the SDK runs in the WebView:
+
+- Success: `window.__hostedLinkComplete({ status: "success", callbackUrl: "<optional_redirect_uri>" });`
+- Cancel: `window.__hostedLinkComplete({ status: "cancel" });`
+
+The WebView is not reloaded or navigated; only this callback is run.
+
+**3. Redirect / deep link**
+
+To receive the Hosted Link completion redirect:
+
+- **Option A – Default scheme (simplest):**  
+  Pass `com.wedge.wedgesdk.sdk.HOSTED_LINK_DEFAULT_REDIRECT_URI` as `hostedLinkCompletionRedirectUri` when calling `OnboardingSDK.startOnboarding()`. The SDK declares an intent-filter for `wedgehostedlink://complete`, so when the provider redirects to that URI your app is opened and the callback is invoked with `status: "success"`.
+
+- **Option B – Your own scheme:**  
+  Add an intent-filter in your app for your redirect URI (e.g. `myapp://hosted-link-complete`). When your activity receives the intent, start `WebViewActivity` with `FLAG_ACTIVITY_SINGLE_TOP` and extras:  
+  `hostedLinkSuccess = true`,  
+  `hostedLinkCallbackUrl = intent.data?.toString()`.  
+  The SDK will then invoke `window.__hostedLinkComplete({ status: "success", callbackUrl: ... })` in the WebView.
+
 ## 🔒 Security
 
 - API keys are passed securely via Intent extras

@@ -27,14 +27,14 @@ object OnboardingSDK {
 
     /**
      * Starts the onboarding flow with the specified parameters.
-     * URL is built as: baseUrl + ?onboardingToken=...&type=... (&plaidCompletionRedirectUri=... if provided).
+     * URL is built as: baseUrl + ?onboardingToken=...&type=... (&hostedLinkCompletionRedirectUri=... if provided).
      *
      * @param activity The FragmentActivity to start the onboarding from
      * @param token The onboarding token for authentication
      * @param env The environment: "integration", "sandbox", "production"
      * @param type The type of flow: "onboarding" or "funding"
      * @param customBaseUrl Optional override for base URL. When null, base URL is taken from the environment map.
-     * @param plaidCompletionRedirectUri Optional; e.g. "yourapp://complete" when using Plaid Hosted Link
+     * @param hostedLinkCompletionRedirectUri Optional; e.g. "yourapp://complete" when using Hosted Link (opens in Custom Tab and redirects back to the app)
      * @param callback The callback interface for handling onboarding events
      */
     fun startOnboarding(
@@ -43,7 +43,7 @@ object OnboardingSDK {
         env: String,
         type: String = "onboarding",
         customBaseUrl: String? = null,
-        plaidCompletionRedirectUri: String? = null,
+        hostedLinkCompletionRedirectUri: String? = null,
         callback: OnboardingCallback
     ) {
         this.callback = callback
@@ -53,7 +53,7 @@ object OnboardingSDK {
         intent.putExtra("env", env)
         intent.putExtra("type", type)
         customBaseUrl?.let { intent.putExtra("customBaseUrl", it) }
-        plaidCompletionRedirectUri?.let { intent.putExtra("plaidCompletionRedirectUri", it) }
+        hostedLinkCompletionRedirectUri?.let { intent.putExtra("hostedLinkCompletionRedirectUri", it) }
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         activity.startActivity(intent)
     }

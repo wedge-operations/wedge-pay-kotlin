@@ -8,7 +8,16 @@
         <activity
             android:name=".sdk.WebViewActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="stateHidden|adjustResize"
-            android:theme="@style/Theme.OnboardingSDK.EdgeToEdge" />
+            android:theme="@style/Theme.OnboardingSDK.EdgeToEdge">
+            <!-- Hosted Link completion redirect (default scheme). Use this as hostedLinkCompletionRedirectUri, or use your own scheme and forward the result to WebViewActivity with extras hostedLinkSuccess and hostedLinkCallbackUrl. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="wedgehostedlink" android:host="complete" android:pathPrefix="/" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
