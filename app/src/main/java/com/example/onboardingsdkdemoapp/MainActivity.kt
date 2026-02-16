@@ -10,7 +10,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 
 class MainActivity : AppCompatActivity() {
-
     private lateinit var tokenEditText: EditText
     private lateinit var startButton: Button
     private lateinit var typeSpinner: Spinner
@@ -99,10 +98,10 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            val selectedEnvLabel = envSpinner.selectedItem?.toString() ?: "Integration"
-            val env = envValues[selectedEnvLabel] ?: "integration"
+            val selectedEnvLabel = envSpinner.selectedItem?.toString() ?: "Sandbox"
+            val env = envValues[selectedEnvLabel] ?: "sandbox"
             val selectedType = typeSpinner.selectedItem.toString()
-            val hostedLinkCompletionRedirectUri: String? = com.wedge.wedgesdk.sdk.HOSTED_LINK_DEFAULT_REDIRECT_URI
+            val completionRedirectURI: String? = null
 
             com.wedge.wedgesdk.sdk.OnboardingSDK.startOnboarding(
                 activity = this@MainActivity,
@@ -110,7 +109,7 @@ class MainActivity : AppCompatActivity() {
                 env = env,
                 type = selectedType,
                 customBaseUrl = null,
-                hostedLinkCompletionRedirectUri = hostedLinkCompletionRedirectUri,
+                completionRedirectURI = completionRedirectURI,
                 callback = object : com.wedge.wedgesdk.sdk.OnboardingCallback {
                     override fun onSuccess(data: String) {
                         showModal("Success", "Onboarding was completed successfully.\n\nAnswer:\n$data")
@@ -121,10 +120,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     override fun onError(error: String) {
-                        val hint = if (error.contains("ERR_CONNECTION_REFUSED") && env == "development") {
-                            "\n\n• On your Mac: run the web app so it listens on all interfaces, e.g. npm run dev -- --host 0.0.0.0 (or yarn dev --host 0.0.0.0).\n\n• If still refused: use your Mac’s IP in Development URL above (e.g. http://192.168.0.85:3000). Find IP in System Settings → Network."
-                        } else ""
-                        showModal("Error", "An error occurred during onboarding.\n\n$error$hint")
+                        showModal("Error", "An error occurred during onboarding.\n\n$error")
                     }
 
                     override fun onEvent(event: String) {

@@ -18,11 +18,11 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import org.json.JSONObject
 
-/** Default scheme for Hosted Link completion redirect. Host apps can use this as hostedLinkCompletionRedirectUri. */
+/** Default scheme for Hosted Link completion redirect. Host apps can use this as completionRedirectUri. */
 const val HOSTED_LINK_DEFAULT_SCHEME = "wedgehostedlink"
 const val HOSTED_LINK_DEFAULT_HOST = "complete"
 
-/** Default full redirect URI for Hosted Link. Pass this as [com.wedge.wedgesdk.sdk.OnboardingSDK.startOnboarding] hostedLinkCompletionRedirectUri to use the SDK's built-in deep link handling. */
+/** Default full redirect URI for Hosted Link. Pass this as [com.wedge.wedgesdk.sdk.OnboardingSDK.startOnboarding] completionRedirectUri to use the SDK's built-in deep link handling. */
 const val HOSTED_LINK_DEFAULT_REDIRECT_URI = "$HOSTED_LINK_DEFAULT_SCHEME://$HOSTED_LINK_DEFAULT_HOST"
 
 class WebViewActivity : AppCompatActivity() {
@@ -40,8 +40,11 @@ class WebViewActivity : AppCompatActivity() {
     private var hasResponded = false
     /** True after opening Hosted Link in Custom Tab; cleared when we invoke __hostedLinkComplete. */
     private var hostedLinkPending = false
+    /** Delayed cancel to avoid racing redirect on returning from Custom Tab. */
+    private var hostedLinkCancelRunnable: Runnable? = null
+    private val hostedLinkHandler = Handler(Looper.getMainLooper())
     /** Redirect URI for Hosted Link (from intent); used to detect success deep link. */
-    private var hostedLinkCompletionRedirectUri: String? = null
+    private var completionRedirectUri: String = HOSTED_LINK_DEFAULT_REDIRECT_URI
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,9 +66,12 @@ class WebViewActivity : AppCompatActivity() {
                 domStorageEnabled = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
+                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             }
         }
         root.addView(webView)
+        CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
 
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val sysBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -102,11 +108,15 @@ class WebViewActivity : AppCompatActivity() {
         val env = intent.getStringExtra("env") ?: "sandbox"
         val type = intent.getStringExtra("type") ?: "onboarding"
         val customBaseUrl = intent.getStringExtra("customBaseUrl")?.trim()?.takeIf { it.isNotBlank() }
-        hostedLinkCompletionRedirectUri = intent.getStringExtra("hostedLinkCompletionRedirectUri")?.trim()?.takeIf { it.isNotBlank() }
-            ?: intent.getStringExtra("plaidCompletionRedirectUri")?.trim()?.takeIf { it.isNotBlank() }
+        completionRedirectUri = resolveCompletionRedirectUri(intent)
 
-        var baseUrl = (customBaseUrl ?: (ENVIRONMENTS[env] ?: ENVIRONMENTS["integration"]!!)).trim().trimEnd('/')
-        val url = buildWebViewUrl(baseUrl, token, type, this.hostedLinkCompletionRedirectUri)
+        val resolvedBaseUrl = when {
+            !customBaseUrl.isNullOrBlank() -> customBaseUrl
+            env.startsWith("http://") || env.startsWith("https://") -> env
+            else -> ENVIRONMENTS[env] ?: ENVIRONMENTS["integration"]!!
+        }
+        val baseUrl = resolvedBaseUrl.trim().trimEnd('/')
+        val url = buildWebViewUrl(baseUrl, token, type, this.completionRedirectUri)
         Log.d("WedgeSDK", "Loading URL: $url (env=$env, baseUrl=$baseUrl)")
 
         webView.addJavascriptInterface(JSBridge(), "WedgeSDKAndroid")
@@ -114,37 +124,117 @@ class WebViewActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 webView.evaluateJavascript("window.__ONBOARDING_TOKEN__ = '$token';", null)
+                injectHostedLinkWebConfig()
+                injectBridgeCompletionRedirectUriFallback()
                 OnboardingSDK.handleLoad(url ?: "")
             }
 
             override fun onReceivedError(
                 view: WebView, request: WebResourceRequest, error: WebResourceError
             ) {
+                if (!request.isForMainFrame) {
+                    Log.w(
+                        "WedgeSDK",
+                        "Subresource load error ignored: url=${request.url}, code=${error.errorCode}, desc=${error.description}"
+                    )
+                    return
+                }
                 if (!hasResponded) {
-                    OnboardingSDK.handleError(error.description.toString())
+                    OnboardingSDK.handleError(
+                        "Main frame load failed: url=${request.url}, code=${error.errorCode}, desc=${error.description}"
+                    )
                     hasResponded = true
                     finish()
                 }
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView,
+                request: WebResourceRequest,
+                errorResponse: WebResourceResponse
+            ) {
+                if (!request.isForMainFrame || hasResponded) return
+                OnboardingSDK.handleError(
+                    "HTTP error loading ${request.url}: status=${errorResponse.statusCode} reason=${errorResponse.reasonPhrase}"
+                )
+                hasResponded = true
+                finish()
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                Log.d(
+                    "WedgeSDKConsole",
+                    "${consoleMessage.message()} (${consoleMessage.sourceId()}:${consoleMessage.lineNumber()})"
+                )
+                return true
             }
         }
 
         webView.loadUrl(url)
     }
 
-    /** Same URL shape for all environments: baseUrl + onboardingToken + type + optional hostedLinkCompletionRedirectUri. */
+    /** URL shape: baseUrl + onboardingToken (+ type when not default) + completionRedirectURI. */
     private fun buildWebViewUrl(
         baseUrl: String,
         onboardingToken: String,
         type: String,
-        hostedLinkCompletionRedirectUri: String?
+        completionRedirectUri: String
     ): String {
         val separator = if (baseUrl.contains("?")) "&" else "?"
         val params = listOfNotNull(
             "onboardingToken=${Uri.encode(onboardingToken)}",
-            "type=${Uri.encode(type)}",
-            hostedLinkCompletionRedirectUri?.let { "hostedLinkCompletionRedirectUri=${Uri.encode(it)}" }
+            type.takeIf { it.isNotBlank() && it != "onboarding" }?.let { "type=${Uri.encode(it)}" },
+            "completionRedirectURI=${Uri.encode(completionRedirectUri)}"
         )
         return baseUrl + separator + params.joinToString("&")
+    }
+
+    /** Inject redirect URI into a global config object for webapp Hosted Link token creation. */
+    private fun injectHostedLinkWebConfig() {
+        val quotedRedirectUri = JSONObject.quote(completionRedirectUri)
+        val js = """
+            (function() {
+              var redirectUri = $quotedRedirectUri;
+              if (!window.WedgeSDKConfig || typeof window.WedgeSDKConfig !== "object") {
+                window.WedgeSDKConfig = {};
+              }
+              window.WedgeSDKConfig.completionRedirectUri = redirectUri;
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+
+    /**
+     * Some web builds read `WedgeSDKAndroid.completionRedirectUri` (property fallback)
+     * instead of calling `getCompletionRedirectUri()`. Add a JS-level getter for compatibility.
+     */
+    private fun injectBridgeCompletionRedirectUriFallback() {
+        val js = """
+            (function() {
+              var bridge = window.WedgeSDKAndroid;
+              if (!bridge || typeof bridge.getCompletionRedirectUri !== "function") return;
+              if (typeof bridge.completionRedirectUri !== "undefined") return;
+              try {
+                Object.defineProperty(bridge, "completionRedirectUri", {
+                  configurable: true,
+                  enumerable: false,
+                  get: function() { return bridge.getCompletionRedirectUri(); }
+                });
+              } catch (e) {
+                try { bridge.completionRedirectUri = bridge.getCompletionRedirectUri(); } catch (_) {}
+              }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+
+    /** Accept both camel-case variants for backward compatibility between SDK versions. */
+    private fun resolveCompletionRedirectUri(intent: Intent): String {
+        return intent.getStringExtra("completionRedirectUri")?.trim()?.takeIf { it.isNotBlank() }
+            ?: intent.getStringExtra("completionRedirectURI")?.trim()?.takeIf { it.isNotBlank() }
+            ?: HOSTED_LINK_DEFAULT_REDIRECT_URI
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -157,8 +247,7 @@ class WebViewActivity : AppCompatActivity() {
         super.onResume()
         checkHostedLinkRedirect(intent)
         if (hostedLinkPending) {
-            hostedLinkPending = false
-            invokeHostedLinkComplete("cancel", null)
+            scheduleHostedLinkCancelFallback()
         }
     }
 
@@ -174,7 +263,9 @@ class WebViewActivity : AppCompatActivity() {
             "\"$escaped\""
         } else "undefined"
         val js = "if (window.__hostedLinkComplete) { window.__hostedLinkComplete({ status: \"$status\", callbackUrl: $urlArg }); }"
-        webView.evaluateJavascript(js, null)
+        webView.post {
+            webView.evaluateJavascript(js, null)
+        }
     }
 
     private fun openHostedLinkUrl(url: String): Boolean {
@@ -194,45 +285,81 @@ class WebViewActivity : AppCompatActivity() {
         try {
             val uri = Uri.parse(u)
             hostedLinkPending = true
+            hostedLinkCancelRunnable?.let { hostedLinkHandler.removeCallbacks(it) }
             CustomTabsIntent.Builder().build().launchUrl(this, uri)
             return true
         } catch (e: Exception) {
             Log.e("WedgeSDK", "openHostedLink: failed to launch Custom Tab", e)
+            hostedLinkPending = false
             return false
+        }
+    }
+
+    private fun scheduleHostedLinkCancelFallback() {
+        hostedLinkCancelRunnable?.let { hostedLinkHandler.removeCallbacks(it) }
+        hostedLinkCancelRunnable = Runnable {
+            if (hostedLinkPending) {
+                hostedLinkPending = false
+                invokeHostedLinkComplete("cancel", null)
+            }
+        }
+        hostedLinkHandler.postDelayed(hostedLinkCancelRunnable!!, 1500L)
+    }
+
+    /**
+     * Reads hosted-link outcome from callback URL query params.
+     * Recognized keys: `status` and `result` with values `success`/`cancel`.
+     */
+    private fun inferHostedLinkStatusFromCallbackUrl(callbackUrl: String?): String? {
+        if (callbackUrl.isNullOrBlank()) return null
+        return try {
+            val uri = Uri.parse(callbackUrl)
+            val statusValue = uri.getQueryParameter("status")
+                ?: uri.getQueryParameter("result")
+            when (statusValue?.trim()?.lowercase()) {
+                "success", "completed", "complete" -> "success"
+                "cancel", "canceled", "cancelled" -> "cancel"
+                else -> null
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
     private fun checkHostedLinkRedirect(intent: Intent) {
         if (!hostedLinkPending) return
         var callbackUrl: String? = null
-        val isSuccess = when {
+        var callbackStatus: String? = null
+        val isHandled = when {
             intent.getBooleanExtra("hostedLinkSuccess", false) -> {
                 callbackUrl = intent.getStringExtra("hostedLinkCallbackUrl")
+                callbackStatus = "success"
                 true
             }
             intent.data != null -> {
                 val data = intent.data!!
                 val matchesDefault = data.scheme == HOSTED_LINK_DEFAULT_SCHEME && data.host == HOSTED_LINK_DEFAULT_HOST
-                val matchesCustom = hostedLinkCompletionRedirectUri?.let { uri ->
-                    try {
-                        val expected = Uri.parse(uri)
-                        data.scheme == expected.scheme && data.host == expected.host
-                    } catch (_: Exception) { false }
-                } ?: false
+                val matchesCustom = try {
+                    val expected = Uri.parse(completionRedirectUri)
+                    data.scheme == expected.scheme && data.host == expected.host
+                } catch (_: Exception) { false }
                 if (matchesDefault || matchesCustom) {
                     callbackUrl = data.toString()
+                    callbackStatus = inferHostedLinkStatusFromCallbackUrl(callbackUrl) ?: "success"
                     true
                 } else false
             }
             else -> false
         }
-        if (isSuccess) {
+        if (isHandled) {
+            hostedLinkCancelRunnable?.let { hostedLinkHandler.removeCallbacks(it) }
             hostedLinkPending = false
-            invokeHostedLinkComplete("success", callbackUrl)
+            invokeHostedLinkComplete(callbackStatus ?: "success", callbackUrl)
         }
     }
 
     override fun onDestroy() {
+        hostedLinkCancelRunnable?.let { hostedLinkHandler.removeCallbacks(it) }
         webView.removeJavascriptInterface("WedgeSDKAndroid")
         webView.stopLoading()
         super.onDestroy()
@@ -317,6 +444,10 @@ class WebViewActivity : AppCompatActivity() {
         fun openHostedLink(url: String): Boolean {
             return openHostedLinkUrl(url)
         }
+
+        /** Bridge fallback for webapp builds that fetch redirect URI from Android bridge. */
+        @JavascriptInterface
+        fun getCompletionRedirectUri(): String = completionRedirectUri
 
         @JavascriptInterface
         fun postMessage(json: String) {
