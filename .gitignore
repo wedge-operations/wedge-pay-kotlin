@@ -46,7 +46,10 @@ captures/
 .idea/libraries
 # Android Studio 3 in .gitignore file.
 .idea/caches
+.idea/caches/deviceStreaming.xml
 .idea/modules.xml
+.idea/
+app/.idea/
 # Comment next line if keeping position of elements in Navigation Editor is desired for your project
 .idea/navEditor.xml
 
