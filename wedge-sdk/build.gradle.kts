@@ -50,7 +50,7 @@ afterEvaluate {
 
                 groupId = "com.wedge-can"
                 artifactId = "wedge-sdk"
-                version = "1.1.0"
+                version = "1.2.0"
 
                 pom {
                     name.set("Wedge SDK")
@@ -100,7 +100,7 @@ dependencies {
 
 val groupIdForZip = "com.wedge-can"
 val artifactIdForZip = "wedge-sdk"
-val versionForZip = "1.1.0"
+val versionForZip = "1.2.0"
 
 tasks.register("checksumsMavenLocal") {
     dependsOn("publishReleasePublicationToMavenLocal")
