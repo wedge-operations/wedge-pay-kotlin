@@ -101,7 +101,7 @@ class MainActivity : AppCompatActivity() {
             val selectedEnvLabel = envSpinner.selectedItem?.toString() ?: "Sandbox"
             val env = envValues[selectedEnvLabel] ?: "sandbox"
             val selectedType = typeSpinner.selectedItem.toString()
-            val completionRedirectURI: String? = null
+            val hostedLinkRedirectUri: String? = null
 
             com.wedge.wedgesdk.sdk.OnboardingSDK.startOnboarding(
                 activity = this@MainActivity,
@@ -109,7 +109,7 @@ class MainActivity : AppCompatActivity() {
                 env = env,
                 type = selectedType,
                 customBaseUrl = null,
-                completionRedirectURI = completionRedirectURI,
+                hostedLinkRedirectUri = hostedLinkRedirectUri,
                 callback = object : com.wedge.wedgesdk.sdk.OnboardingCallback {
                     override fun onSuccess(data: String) {
                         showModal("Success", "Onboarding was completed successfully.\n\nAnswer:\n$data")

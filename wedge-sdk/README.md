@@ -194,13 +194,25 @@ The WebView is not reloaded or navigated; only this callback is run.
 To receive the Hosted Link completion redirect:
 
 - **Option A – Default scheme (simplest):**  
-  Pass `com.wedge.wedgesdk.sdk.HOSTED_LINK_DEFAULT_REDIRECT_URI` as `completionRedirectURI` when calling `OnboardingSDK.startOnboarding()`. The SDK declares an intent-filter for `wedgehostedlink://complete`, so when the provider redirects to that URI your app is opened and the callback is invoked with `status: "success"`.
+  Pass `com.wedge.wedgesdk.sdk.HOSTED_LINK_DEFAULT_REDIRECT_URI` as `hostedLinkRedirectUri` when calling `OnboardingSDK.startOnboarding()`. The SDK declares an intent-filter for `wedgehostedlink://complete`, so when the provider redirects to that URI your app is opened and the callback is invoked with `status: "success"`.
 
 - **Option B – Your own scheme:**  
   Add an intent-filter in your app for your redirect URI (e.g. `myapp://hosted-link-complete`). When your activity receives the intent, start `WebViewActivity` with `FLAG_ACTIVITY_SINGLE_TOP` and extras:  
   `hostedLinkSuccess = true`,  
   `hostedLinkCallbackUrl = intent.data?.toString()`.  
   The SDK will then invoke `window.__hostedLinkComplete({ status: "success", callbackUrl: ... })` in the WebView.
+
+**4. Web SDK config contract (Android)**
+
+The Android SDK now injects these keys into `window.WedgeSDKConfig` for capability-based routing:
+
+- `platform: "android"`
+- `supportsHostedLink: true` (or false if `WebViewActivity` is launched with `supportsHostedLink=false`)
+- `hostedLinkRedirectUri: "<redirect-uri>"` (preferred)
+
+Bridge contract:
+
+- `WedgeSDKAndroid.getHostedLinkRedirectUri()` and/or `WedgeSDKAndroid.hostedLinkRedirectUri`
 
 ## 🔒 Security
 

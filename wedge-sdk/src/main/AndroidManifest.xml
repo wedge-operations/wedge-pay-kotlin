@@ -11,7 +11,7 @@
             android:launchMode="singleTop"
             android:windowSoftInputMode="stateHidden|adjustResize"
             android:theme="@style/Theme.OnboardingSDK.EdgeToEdge">
-            <!-- Hosted Link completion redirect (default scheme). Use this as completionRedirectUri, or use your own scheme and forward the result to WebViewActivity with extras hostedLinkSuccess and hostedLinkCallbackUrl. -->
+            <!-- Hosted Link completion redirect (default scheme). Use this as hostedLinkRedirectUri, or use your own scheme and forward the result to WebViewActivity with extras hostedLinkSuccess and hostedLinkCallbackUrl. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
