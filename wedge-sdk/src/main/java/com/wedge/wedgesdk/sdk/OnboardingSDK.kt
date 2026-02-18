@@ -26,11 +26,15 @@ object OnboardingSDK {
     private var callback: OnboardingCallback? = null
 
     /**
-     * Starts the onboarding flow with the specified parameters
+     * Starts the onboarding flow with the specified parameters.
+     * URL is built as: baseUrl + ?onboardingToken=...&type=... (&hostedLinkRedirectUri=... if provided).
+     *
      * @param activity The FragmentActivity to start the onboarding from
      * @param token The onboarding token for authentication
-     * @param env The environment (integration, sandbox, production)
-     * @param type The type of onboarding flow ("onboarding" for new users, "funding" for existing users)
+     * @param env The environment: "integration", "sandbox", "production"
+     * @param type The type of flow: "onboarding" or "funding"
+     * @param customBaseUrl Optional override for base URL. When null, base URL is taken from the environment map.
+     * @param hostedLinkRedirectUri Optional; e.g. "yourapp://complete" when using Hosted Link (opens in Custom Tab and redirects back to the app)
      * @param callback The callback interface for handling onboarding events
      */
     fun startOnboarding(
@@ -38,6 +42,8 @@ object OnboardingSDK {
         token: String,
         env: String,
         type: String = "onboarding",
+        customBaseUrl: String? = null,
+        hostedLinkRedirectUri: String? = null,
         callback: OnboardingCallback
     ) {
         this.callback = callback
@@ -46,6 +52,12 @@ object OnboardingSDK {
         intent.putExtra("token", token)
         intent.putExtra("env", env)
         intent.putExtra("type", type)
+        // Explicit capability flag for web SDK capability-based Hosted Link routing.
+        intent.putExtra("supportsHostedLink", true)
+        customBaseUrl?.let { intent.putExtra("customBaseUrl", it) }
+        hostedLinkRedirectUri?.let {
+            intent.putExtra("hostedLinkRedirectUri", it)
+        }
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         activity.startActivity(intent)
     }
